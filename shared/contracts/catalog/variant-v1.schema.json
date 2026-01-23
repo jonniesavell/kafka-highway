@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://localhost:8082/catalog/variant-v1.schema.json",
+  "title": "VariantV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["variantId", "sku", "price", "optionValues"],
+  "properties": {
+    "variantId": { "$ref": "http://localhost:8082/common/identifiers.schema.json#/$defs/uuid" },
+    "sku": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "price": { "$ref": "http://localhost:8082/common/money.schema.json" },
+    "compareAtPrice": { "$ref": "http://localhost:8082/common/money.schema.json" },
+    "optionValues": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "maxLength": 60 }
+    }
+  }
+}
