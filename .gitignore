@@ -20,6 +20,9 @@ replay_pid*
 # IntelliJ
 .idea/
 
+# Maven artifacts
+target/
+
 # Mac crap
 .DS_Store
 
