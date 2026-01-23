@@ -80,7 +80,7 @@ public final class HighwayConsumer implements Runnable {
                     } else {
                         // If we couldn't safely handle (including DLT publish), do not commit;
                         // letting the process restart will re-deliver.
-                        // LIES! sadly, we cannot do that. the SHOW must go on!
+                        // sadly, we cannot do that. the SHOW must go on!
                         offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                     }
                 }

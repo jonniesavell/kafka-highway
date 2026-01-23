@@ -44,6 +44,7 @@
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
+        <!-- END of shared dependencies -->
 
         <dependency>
             <groupId>com.networknt</groupId>
@@ -51,12 +52,11 @@
             <version>2.0.1</version>
         </dependency>
 
-        <!-- END of shared dependencies -->
-
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.data</groupId>-->
-<!--            <artifactId>spring-data-jpa</artifactId>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>com.indigententerprises.applications</groupId>
+            <artifactId>shared</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
