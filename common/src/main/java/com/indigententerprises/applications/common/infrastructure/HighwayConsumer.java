@@ -66,11 +66,11 @@ public final class HighwayConsumer implements Runnable {
 
         try {
             while (!Thread.currentThread().isInterrupted()) {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
-                Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = new HashMap<TopicPartition, OffsetAndMetadata>();
+                final ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+                final Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = new HashMap<>();
 
-                for (ConsumerRecord<String, String> record : records) {
-                    TopicPartition tp = new TopicPartition(record.topic(), record.partition());
+                for (final ConsumerRecord<String, String> record : records) {
+                    final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
 
                     boolean okToCommit = handleRecord(record);
 
@@ -78,9 +78,9 @@ public final class HighwayConsumer implements Runnable {
                         // commit “next offset”
                         offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                     } else {
-                        // If we couldn't safely handle (including DLT publish), do not commit;
+                        // if we couldn't safely handle (including DLT publish), do not commit;
                         // letting the process restart will re-deliver.
-                        // sadly, we cannot do that. the SHOW must go on!
+                        // sadly, we cannot do that. the theory is incorrect. the SHOW must go on!
                         offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                     }
                 }
@@ -96,16 +96,15 @@ public final class HighwayConsumer implements Runnable {
         }
     }
 
-    private boolean handleRecord(ConsumerRecord<String, String> record) {
-        String json = record.value();
-        String key = record.key();
+    private boolean handleRecord(final ConsumerRecord<String, String> record) {
+        final String key = record.key();
+        final String json = record.value();
 
         try {
-            JsonNode root = objectMapper.readTree(json);
-
-            JsonNode typeNode = root.get("type");
-            JsonNode versionNode = root.get("v");
-            JsonNode payloadNode = root.get("payload");
+            final JsonNode root = objectMapper.readTree(json);
+            final JsonNode typeNode = root.get("type");
+            final JsonNode versionNode = root.get("v");
+            final JsonNode payloadNode = root.get("payload");
 
             if (typeNode == null || versionNode == null || payloadNode == null) {
                 dltPublisher.publishBlocking(
@@ -141,7 +140,7 @@ public final class HighwayConsumer implements Runnable {
                 return true;
             }
 
-            // Validate BEFORE binding
+            // validate BEFORE binding
             final List<Error> errors = entry.getSchema().validate(payloadNode);
 
             if (!errors.isEmpty()) {

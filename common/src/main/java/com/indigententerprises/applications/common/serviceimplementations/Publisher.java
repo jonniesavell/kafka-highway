@@ -11,12 +11,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.util.UUID;
 
-public final class HighwayProducer {
+public final class Publisher {
 
     private final ObjectMapper objectMapper;
     private final KafkaProducer<String, String> producer;
 
-    public HighwayProducer(
+    public Publisher(
             final ObjectMapper objectMapper,
             final KafkaProducer<String, String> producer) {
         this.objectMapper = objectMapper;

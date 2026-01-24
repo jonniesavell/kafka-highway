@@ -51,7 +51,6 @@
                     <annotationStyle>jackson2</annotationStyle>
                     <sourcePaths>
                         <sourcePath>${project.basedir}/../shared/contracts/catalog/canonical-product-v1.schema.json</sourcePath>
-                        <!-- sourcePath>${project.basedir}/../shared/contracts/catalog/variant-v1.schema.json</sourcePath -->
                     </sourcePaths>
                     <targetPackage>com.indigententerprises.applications.shared.contracts</targetPackage>
                 </configuration>

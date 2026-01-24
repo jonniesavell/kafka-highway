@@ -1,14 +1,8 @@
 package com.indigententerprises.applications.transmissionhub.configuration;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
-import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
+import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
 import org.springframework.boot.ApplicationRunner;
@@ -16,6 +10,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +45,7 @@ public class AppWiring {
             ExecutorService consumerExecutor
     ) {
         return args -> {
-            // 1) Load registry rows from Postgres (json_schema is jsonb)
+            // note that json_schema is of type jsonb
             final String sql =
                     "SELECT r.event_type, r.version, r.payload_class, r.json_schema " +
                     "  FROM operations.schema_registry r " +
@@ -71,15 +71,12 @@ public class AppWiring {
             };
 
             final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
-
-            // 2) Explicit constructor calls (you can see these)
             final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
             final String bootstrapServers = "127.0.0.1:19092";
             final String highwayTopic = "hw.events";
             final String dltTopic = "hw.events-dlt";
             final String groupId = "highway-router-v1";
             final DltPublisher dltPublisher = new DltPublisher(bootstrapServers);
-
             final HighwayConsumer highwayConsumer = new HighwayConsumer(
                     bootstrapServers,
                     groupId,
@@ -90,7 +87,6 @@ public class AppWiring {
                     dltPublisher
             );
 
-            // 3) start polling loop on a PARKED thread. shame ...
             consumerExecutor.submit(highwayConsumer);
         };
     }
