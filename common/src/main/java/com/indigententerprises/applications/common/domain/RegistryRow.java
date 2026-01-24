@@ -1,4 +1,4 @@
-package com.indigententerprises.applications.transmissionhub.domain;
+package com.indigententerprises.applications.common.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 

@@ -38,6 +38,7 @@
 
     <modules>
         <module>shared</module>
+        <module>common</module>
         <module>transmission-hub</module>
     </modules>
 

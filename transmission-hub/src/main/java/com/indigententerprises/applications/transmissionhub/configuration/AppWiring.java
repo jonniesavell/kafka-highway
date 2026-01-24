@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import com.indigententerprises.applications.transmissionhub.infrastructure.HighwayConsumer;
-import com.indigententerprises.applications.transmissionhub.serviceimplementations.DltPublisher;
-import com.indigententerprises.applications.transmissionhub.serviceimplementations.CompiledRegistry;
-import com.indigententerprises.applications.transmissionhub.domain.RegistryRow;
+import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
+import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
+import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
+import com.indigententerprises.applications.common.domain.RegistryRow;
 
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;

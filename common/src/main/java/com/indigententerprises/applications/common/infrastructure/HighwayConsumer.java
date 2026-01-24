@@ -1,11 +1,11 @@
-package com.indigententerprises.applications.transmissionhub.infrastructure;
+package com.indigententerprises.applications.common.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.indigententerprises.applications.transmissionhub.serviceimplementations.DltPublisher;
-import com.indigententerprises.applications.transmissionhub.serviceimplementations.CompiledRegistry;
-import com.indigententerprises.applications.transmissionhub.domain.CompiledEntry;
+import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
+import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
+import com.indigententerprises.applications.common.domain.CompiledEntry;
 
 import com.networknt.schema.Error;
 

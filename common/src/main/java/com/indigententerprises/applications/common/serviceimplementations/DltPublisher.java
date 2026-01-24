@@ -1,4 +1,4 @@
-package com.indigententerprises.applications.transmissionhub.serviceimplementations;
+package com.indigententerprises.applications.common.serviceimplementations;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;

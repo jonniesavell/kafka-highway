@@ -1,7 +1,7 @@
-package com.indigententerprises.applications.transmissionhub.serviceimplementations;
+package com.indigententerprises.applications.common.serviceimplementations;
 
-import com.indigententerprises.applications.transmissionhub.domain.CompiledEntry;
-import com.indigententerprises.applications.transmissionhub.domain.RegistryRow;
+import com.indigententerprises.applications.common.domain.CompiledEntry;
+import com.indigententerprises.applications.common.domain.RegistryRow;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.Schema;
