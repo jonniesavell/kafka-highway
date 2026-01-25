@@ -36,7 +36,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 @ExtendWith(MockitoExtension.class)
-public class JsonPublisherTest {
+public class OfframpPublisherTest {
 
     private static final LinkedList<RegistryRow> ROWS = new LinkedList<>();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -104,8 +104,8 @@ public class JsonPublisherTest {
 //        when(producer.send(any())).thenReturn(new ImmediatelyAvailableFuture());
 
         Assertions.assertThrows(TypeConformanceException.class, () -> {
-            final JsonPublisher systemUnderTest =
-                    new JsonPublisher(
+            final OfframpPublisher systemUnderTest =
+                    new OfframpPublisher(
                             OBJECT_MAPPER,
                             compiledRegistry,
                             producer
@@ -125,8 +125,8 @@ public class JsonPublisherTest {
     public void testJsonPublisherAfterSupplyingCorrectType() throws Exception {
         when(producer.send(any())).thenReturn(new ImmediatelyAvailableFuture());
 
-        final JsonPublisher systemUnderTest =
-                new JsonPublisher(
+        final OfframpPublisher systemUnderTest =
+                new OfframpPublisher(
                         OBJECT_MAPPER,
                         compiledRegistry,
                         producer

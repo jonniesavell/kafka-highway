@@ -16,13 +16,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public final class JsonPublisher {
+public final class OfframpPublisher {
 
     private final ObjectMapper objectMapper;
     private final CompiledRegistry compiledRegistry;
     private final KafkaProducer<String, String> producer;
 
-    public JsonPublisher(
+    public OfframpPublisher(
             final ObjectMapper objectMapper,
             final CompiledRegistry compiledRegistry,
             final KafkaProducer<String, String> producer) {
