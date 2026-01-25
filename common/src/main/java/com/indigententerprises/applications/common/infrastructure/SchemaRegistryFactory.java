@@ -1,7 +1,6 @@
 package com.indigententerprises.applications.common.infrastructure;
 
 import com.networknt.schema.SchemaRegistry;
-import com.networknt.schema.SpecificationVersion;
 
 import java.io.IOException;
 import java.net.URI;
@@ -12,13 +11,13 @@ import java.util.function.Function;
 
 public final class SchemaRegistryFactory {
 
-    private SchemaRegistryFactory() { }
+    private SchemaRegistryFactory() {}
 
     public static SchemaRegistry createHttpRefRegistry() {
         final HttpClient httpClient = HttpClient.newHttpClient();
 
         final Function<String, String> fetchSchemaText = (String iri) -> {
-            // Safety: only allow your local schema server (adjust if needed)
+            // safety: only allow your local schema server
             if (!iri.startsWith("http://localhost:8082/")) {
                 throw new IllegalArgumentException("Ref fetch blocked (not allowed): " + iri);
             } else {
@@ -27,21 +26,20 @@ public final class SchemaRegistryFactory {
                             .uri(URI.create(iri))
                             .GET()
                             .build();
-
                     final HttpResponse<String> response =
                             httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
                     final int status = response.statusCode();
-                    if (status < 200 || status >= 300) {
-                        throw new IllegalStateException("Ref fetch failed: " + iri + " HTTP " + status);
-                    }
 
-                    return response.body();
+                    if (status < 200 || status >= 300) {
+                        throw new IllegalStateException("ref fetch failed: " + iri + " HTTP " + status);
+                    } else {
+                        return response.body();
+                    }
                 } catch (IOException e) {
-                    throw new IllegalStateException("Ref fetch IO error: " + iri, e);
+                    throw new IllegalStateException("ref fetch IO error: " + iri, e);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Ref fetch interrupted: " + iri, e);
+                    throw new IllegalStateException("ref fetch interrupted: " + iri, e);
                 }
             }
         };
@@ -67,8 +65,6 @@ public final class SchemaRegistryFactory {
 //                .resourceLoaders(resourceLoaders)
 //                .build();
 //    }
-
-
 //    public static SchemaRegistry create() {
 //        // adjust builder method names to what IntelliJ offers in your 2.0.1 jar
 //        return SchemaRegistry.builder()
@@ -87,4 +83,3 @@ public final class SchemaRegistryFactory {
 //                })
 //                .build();
 //    }
-

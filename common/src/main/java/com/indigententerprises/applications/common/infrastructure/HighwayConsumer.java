@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
+import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 
 import com.networknt.schema.Error;
@@ -29,6 +30,7 @@ public final class HighwayConsumer implements Runnable {
     private final KafkaConsumer<String, String> consumer;
     private final ObjectMapper objectMapper;
     private final CompiledRegistry registry;
+    private final OfframpPublisher offrampPublisher;
     private final DltPublisher dltPublisher;
     private final String highwayTopic;
     private final String dltTopic;
@@ -40,12 +42,14 @@ public final class HighwayConsumer implements Runnable {
             final String dltTopic,
             final ObjectMapper objectMapper,
             final CompiledRegistry registry,
+            final OfframpPublisher offrampPublisher,
             final DltPublisher dltPublisher
     ) {
         this.highwayTopic = highwayTopic;
         this.dltTopic = dltTopic;
         this.objectMapper = objectMapper;
         this.registry = registry;
+        this.offrampPublisher = offrampPublisher;
         this.dltPublisher = dltPublisher;
 
         Properties props = new Properties();
@@ -80,7 +84,7 @@ public final class HighwayConsumer implements Runnable {
                     } else {
                         // if we couldn't safely handle (including DLT publish), do not commit;
                         // letting the process restart will re-deliver.
-                        // sadly, we cannot do that. the theory is incorrect. the SHOW must go on!
+                        // sadly, Dave, we cannot do that. the theory is incorrect. the SHOW must go on.
                         offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                     }
                 }
@@ -105,6 +109,7 @@ public final class HighwayConsumer implements Runnable {
             final JsonNode typeNode = root.get("type");
             final JsonNode versionNode = root.get("v");
             final JsonNode payloadNode = root.get("payload");
+            final JsonNode correlationIdNode = root.get("correlationId");
 
             if (typeNode == null || versionNode == null || payloadNode == null) {
                 dltPublisher.publishBlocking(
@@ -122,6 +127,7 @@ public final class HighwayConsumer implements Runnable {
 
             final String eventType = typeNode.asText();
             final int version = versionNode.asInt();
+            final String correlationId = correlationIdNode == null ? null : correlationIdNode.asText();
             final CompiledEntry entry;
 
             try {
@@ -161,6 +167,14 @@ public final class HighwayConsumer implements Runnable {
 
             // Bind after validation
             final Object payloadPojo = objectMapper.treeToValue(payloadNode, entry.getPayloadClass());
+            offrampPublisher.send(
+                    record.topic(),
+                    record.key(),
+                    eventType,
+                    version,
+                    payloadPojo,
+                    correlationId
+            );
 
             // TODO: route/transform to roadways here.
             // (At highway speed, keep it lean; avoid per-message DB calls.)

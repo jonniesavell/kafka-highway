@@ -18,11 +18,11 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -98,10 +98,8 @@ public class OfframpPublisherTest {
 
     private final CompiledRegistry compiledRegistry = new CompiledRegistry(ROWS);
 
-
     @Test
-    public void testJsonPublisherAfterSupplyingIncorrectType() {
-//        when(producer.send(any())).thenReturn(new ImmediatelyAvailableFuture());
+    public void testOfframpPublisherAfterSupplyingIncorrectType() {
 
         Assertions.assertThrows(TypeConformanceException.class, () -> {
             final OfframpPublisher systemUnderTest =
@@ -122,7 +120,7 @@ public class OfframpPublisherTest {
     }
 
     @Test
-    public void testJsonPublisherAfterSupplyingCorrectType() throws Exception {
+    public void testOfframpPublisherAfterSupplyingCorrectType() throws Exception {
         when(producer.send(any())).thenReturn(new ImmediatelyAvailableFuture());
 
         final OfframpPublisher systemUnderTest =
@@ -190,7 +188,7 @@ public class OfframpPublisherTest {
 
         @Override
         public boolean cancel(boolean mayInterruptIfRunning) {
-            return true;
+            return false;
         }
 
         @Override

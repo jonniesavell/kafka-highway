@@ -5,6 +5,9 @@ import com.indigententerprises.applications.common.serviceimplementations.Compil
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
+import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +22,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,16 +50,30 @@ public class AppWiring {
         return mapper;
     }
 
-    @Bean(destroyMethod = "shutdown")
+    @Bean(destroyMethod="shutdown")
     public ExecutorService consumerExecutor() {
         return Executors.newSingleThreadExecutor();
     }
 
     @Bean
+    public KafkaProducer<String, String> producer() {
+        final Properties props = new Properties();
+        props.put("bootstrap.servers", bootstrapServers);
+        props.put("acks", "all");
+        props.put("retries", 5);
+        props.put("key.serializer", StringSerializer.class.getName());
+        props.put("value.serializer", StringSerializer.class.getName());
+
+        final KafkaProducer<String, String> result = new KafkaProducer<>(props);
+        return result;
+    }
+
+    @Bean
     public ApplicationRunner runner(
-            JdbcTemplate jdbcTemplate,
-            ObjectMapper objectMapper,
-            ExecutorService consumerExecutor
+            final JdbcTemplate jdbcTemplate,
+            final ObjectMapper objectMapper,
+            final KafkaProducer<String, String> producer,
+            final ExecutorService consumerExecutor
     ) {
         return args -> {
             // note that json_schema is of type jsonb
@@ -85,6 +103,12 @@ public class AppWiring {
 
             final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
             final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
+            final OfframpPublisher offrampPublisher =
+                    new OfframpPublisher(
+                            objectMapper,
+                            compiledRegistry,
+                            producer
+                    );
             final DltPublisher dltPublisher = new DltPublisher(bootstrapServers);
             final HighwayConsumer highwayConsumer = new HighwayConsumer(
                     bootstrapServers,
@@ -93,6 +117,7 @@ public class AppWiring {
                     dltTopic,
                     objectMapper,
                     compiledRegistry,
+                    offrampPublisher,
                     dltPublisher
             );
 

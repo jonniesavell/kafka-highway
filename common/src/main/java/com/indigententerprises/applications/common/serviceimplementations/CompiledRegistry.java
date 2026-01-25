@@ -4,13 +4,11 @@ import com.indigententerprises.applications.common.infrastructure.SchemaRegistry
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import com.networknt.schema.Schema;
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.SchemaRegistry;
-import com.networknt.schema.SpecificationVersion;
-//import com.networknt.schema.resource.
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.HashMap;
 import java.util.List;

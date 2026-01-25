@@ -16,6 +16,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * TODO: this is a synchronous transmission; look at the send call ...
+ * TODO: change this later.
+ */
 public final class OfframpPublisher {
 
     private final ObjectMapper objectMapper;
@@ -58,7 +62,7 @@ public final class OfframpPublisher {
                                 payloadNode
                         );
                 final String json = objectMapper.writeValueAsString(env);
-                producer.send(new ProducerRecord<>(topic, key, json));
+                producer.send(new ProducerRecord<>(topic, key, json)).get();
             }
         } catch (IllegalArgumentException e) {
             throw new TypeConformanceException("invalid type @JsonPublisher", e);
