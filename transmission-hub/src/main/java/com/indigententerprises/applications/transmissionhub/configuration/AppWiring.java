@@ -5,6 +5,7 @@ import com.indigententerprises.applications.common.serviceimplementations.Compil
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,9 @@ import java.util.concurrent.Executors;
 
 @Configuration
 public class AppWiring {
+
+    @Value("${transmission.hub.bootstrap.servers}")
+    private String bootstrapServers;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -72,7 +76,6 @@ public class AppWiring {
 
             final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
             final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
-            final String bootstrapServers = "127.0.0.1:19092";
             final String highwayTopic = "hw.events";
             final String dltTopic = "hw.events-dlt";
             final String groupId = "highway-router-v1";

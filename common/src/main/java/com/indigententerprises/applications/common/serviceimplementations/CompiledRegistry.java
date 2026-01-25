@@ -1,13 +1,16 @@
 package com.indigententerprises.applications.common.serviceimplementations;
 
+import com.indigententerprises.applications.common.infrastructure.SchemaRegistryFactory;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import com.networknt.schema.Schema;
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.SchemaRegistry;
 import com.networknt.schema.SpecificationVersion;
+//import com.networknt.schema.resource.
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +20,8 @@ public final class CompiledRegistry {
     private final Map<String, CompiledEntry> entriesByKey;
 
     public CompiledRegistry(final List<RegistryRow> rows) {
-        final SchemaRegistry schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12);
+        //final SchemaRegistry schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12);
+        final SchemaRegistry schemaRegistry = SchemaRegistryFactory.createHttpRefRegistry();
         final Map<String, CompiledEntry> map = new HashMap<>();
 
         for (RegistryRow row : rows) {
@@ -28,11 +32,10 @@ public final class CompiledRegistry {
 
             try {
                 payloadClass = Class.forName(row.getPayloadClass());
+                map.put(key, new CompiledEntry(row.getEventType(), row.getVersion(), payloadClass, schema));
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException("payload_class not found on classpath: " + row.getPayloadClass(), e);
             }
-
-            map.put(key, new CompiledEntry(row.getEventType(), row.getVersion(), payloadClass, schema));
         }
 
         this.entriesByKey = Map.copyOf(map);
@@ -43,7 +46,7 @@ public final class CompiledRegistry {
         final CompiledEntry entry = entriesByKey.get(key);
 
         if (entry == null) {
-            throw new IllegalArgumentException("Unknown event type/version: " + eventType + " v" + version);
+            throw new IllegalArgumentException("unknown event type/version: " + eventType + " v" + version);
         } else {
             return entry;
         }

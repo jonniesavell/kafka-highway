@@ -3,8 +3,8 @@ package com.indigententerprises.applications.common.infrastructure;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
+import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 
 import com.networknt.schema.Error;
@@ -34,13 +34,13 @@ public final class HighwayConsumer implements Runnable {
     private final String dltTopic;
 
     public HighwayConsumer(
-            String bootstrapServers,
-            String groupId,
-            String highwayTopic,
-            String dltTopic,
-            ObjectMapper objectMapper,
-            CompiledRegistry registry,
-            DltPublisher dltPublisher
+            final String bootstrapServers,
+            final String groupId,
+            final String highwayTopic,
+            final String dltTopic,
+            final ObjectMapper objectMapper,
+            final CompiledRegistry registry,
+            final DltPublisher dltPublisher
     ) {
         this.highwayTopic = highwayTopic;
         this.dltTopic = dltTopic;

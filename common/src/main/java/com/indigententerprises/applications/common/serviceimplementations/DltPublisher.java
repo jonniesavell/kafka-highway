@@ -11,7 +11,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-public final class DltPublisher {
+public final class DltPublisher implements AutoCloseable {
     private final KafkaProducer<String, String> producer;
 
     public DltPublisher(String bootstrapServers) {
@@ -24,29 +24,28 @@ public final class DltPublisher {
         props.put(ProducerConfig.ACKS_CONFIG, "all");
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
 
-        this.producer = new KafkaProducer<String, String>(props);
+        this.producer = new KafkaProducer<>(props);
     }
 
     /**
-     * Publish to DLT, forcing the DLT partition to match the source partition.
+     * publish to DLT, forcing the DLT partition to match the source partition.
      *
-     * Important: your DLT topic must have at least as many partitions as the source topic,
+     * important: your DLT topic must have at least as many partitions as the source topic,
      * otherwise this can fail with an invalid partition error.
      */
     public void publishBlocking(
-            String dltTopic,
-            int sourcePartition,
-            String key,
-            String originalJson,
-            String errorKind,
-            String errorDetail,
-            String sourceTopic,
-            long sourceOffset
+            final String dltTopic,
+            final int sourcePartition,
+            final String key,
+            final String originalJson,
+            final String errorKind,
+            final String errorDetail,
+            final String sourceTopic,
+            final long sourceOffset
     ) throws ExecutionException, InterruptedException {
 
-        Integer destinationPartition = Integer.valueOf(sourcePartition);
-
-        ProducerRecord<String, String> record =
+        final Integer destinationPartition = Integer.valueOf(sourcePartition);
+        final ProducerRecord<String, String> record =
                 new ProducerRecord<>(dltTopic, destinationPartition, key, originalJson);
 
         record.headers().add("dlt.errorKind", errorKind.getBytes(StandardCharsets.UTF_8));
@@ -55,11 +54,12 @@ public final class DltPublisher {
         record.headers().add("dlt.sourcePartition", Integer.toString(sourcePartition).getBytes(StandardCharsets.UTF_8));
         record.headers().add("dlt.sourceOffset", Long.toString(sourceOffset).getBytes(StandardCharsets.UTF_8));
 
-        Future<RecordMetadata> future = producer.send(record);
+        final Future<RecordMetadata> future = producer.send(record);
         future.get(); // ensure DLT write completes before committing source offsets
     }
 
-    public void close() {
+    @Override
+    public void close() throws Exception {
         producer.close();
     }
 }
