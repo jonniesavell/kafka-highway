@@ -28,6 +28,15 @@ public class AppWiring {
     @Value("${transmission.hub.bootstrap.servers}")
     private String bootstrapServers;
 
+    @Value("${transmission.hub.highway.topic}")
+    private String highwayTopic;
+
+    @Value("${transmission.hub.dlt.topic}")
+    private String dltTopic;
+
+    @Value("${transmission.hub.group.id}")
+    private String groupId;
+
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
@@ -76,9 +85,6 @@ public class AppWiring {
 
             final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
             final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
-            final String highwayTopic = "hw.events";
-            final String dltTopic = "hw.events-dlt";
-            final String groupId = "highway-router-v1";
             final DltPublisher dltPublisher = new DltPublisher(bootstrapServers);
             final HighwayConsumer highwayConsumer = new HighwayConsumer(
                     bootstrapServers,
