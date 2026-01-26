@@ -84,7 +84,7 @@ public final class HighwayConsumer implements Runnable {
                     } else {
                         // if we couldn't safely handle (including DLT publish), do not commit;
                         // letting the process restart will re-deliver.
-                        // sadly, Dave, we cannot do that. the theory is incorrect. the SHOW must go on.
+                        // sadly, Dave, we cannot do that; the theory is incorrect: the SHOW must go on.
                         offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                     }
                 }
@@ -132,14 +132,14 @@ public final class HighwayConsumer implements Runnable {
 
             try {
                 entry = registry.require(eventType, version);
-            } catch (IllegalArgumentException ex) {
+            } catch (IllegalArgumentException e) {
                 dltPublisher.publishBlocking(
                         dltTopic,
                         record.partition(),
                         key,
                         json,
                         "UNKNOWN_TYPE_VERSION",
-                        ex.getMessage(),
+                        e.getMessage(),
                         record.topic(),
                         record.offset()
                 );
@@ -165,10 +165,9 @@ public final class HighwayConsumer implements Runnable {
                 return true;
             }
 
-            // Bind after validation
+            // TODO: route/transform to roadways here: at highway speed, keep it lean
             final Object payloadPojo = objectMapper.treeToValue(payloadNode, entry.getPayloadClass());
             offrampPublisher.send(
-                    record.topic(),
                     record.key(),
                     eventType,
                     version,
@@ -176,11 +175,8 @@ public final class HighwayConsumer implements Runnable {
                     correlationId
             );
 
-            // TODO: route/transform to roadways here.
-            // (At highway speed, keep it lean; avoid per-message DB calls.)
-
             return true;
-        } catch (Exception ex) {
+        } catch (Exception e) {
             try {
                 dltPublisher.publishBlocking(
                         dltTopic,
@@ -188,7 +184,7 @@ public final class HighwayConsumer implements Runnable {
                         key,
                         json,
                         "EXCEPTION",
-                        ex.getClass().getName() + ": " + ex.getMessage(),
+                        e.getClass().getName() + ": " + e.getMessage(),
                         record.topic(),
                         record.offset()
                 );

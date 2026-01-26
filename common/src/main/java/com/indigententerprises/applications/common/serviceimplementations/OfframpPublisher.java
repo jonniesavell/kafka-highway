@@ -25,18 +25,20 @@ public final class OfframpPublisher {
     private final ObjectMapper objectMapper;
     private final CompiledRegistry compiledRegistry;
     private final KafkaProducer<String, String> producer;
+    private final String offrampTopic;
 
     public OfframpPublisher(
             final ObjectMapper objectMapper,
             final CompiledRegistry compiledRegistry,
-            final KafkaProducer<String, String> producer) {
+            final KafkaProducer<String, String> producer,
+            final String offrampTopic) {
         this.objectMapper = objectMapper;
         this.compiledRegistry = compiledRegistry;
         this.producer = producer;
+        this.offrampTopic = offrampTopic;
     }
 
     public <T> void send(
-            final String topic,
             final String key,
             final String type,
             final int version,
@@ -62,7 +64,7 @@ public final class OfframpPublisher {
                                 payloadNode
                         );
                 final String json = objectMapper.writeValueAsString(env);
-                producer.send(new ProducerRecord<>(topic, key, json)).get();
+                producer.send(new ProducerRecord<>(offrampTopic, key, json)).get();
             }
         } catch (IllegalArgumentException e) {
             throw new TypeConformanceException("invalid type @JsonPublisher", e);

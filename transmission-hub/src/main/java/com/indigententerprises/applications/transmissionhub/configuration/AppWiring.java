@@ -3,17 +3,18 @@ package com.indigententerprises.applications.transmissionhub.configuration;
 import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
+import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
-import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.serialization.StringSerializer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -34,6 +35,9 @@ public class AppWiring {
 
     @Value("${transmission.hub.highway.topic}")
     private String highwayTopic;
+
+    @Value("${transmission.hub.offramp.topic}")
+    private String offrampTopic;
 
     @Value("${transmission.hub.dlt.topic}")
     private String dltTopic;
@@ -107,7 +111,8 @@ public class AppWiring {
                     new OfframpPublisher(
                             objectMapper,
                             compiledRegistry,
-                            producer
+                            producer,
+                            offrampTopic
                     );
             final DltPublisher dltPublisher = new DltPublisher(bootstrapServers);
             final HighwayConsumer highwayConsumer = new HighwayConsumer(

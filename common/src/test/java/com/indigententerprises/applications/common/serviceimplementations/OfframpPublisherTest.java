@@ -8,11 +8,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import com.indigententerprises.applications.common.serviceinterfaces.TypeConformanceException;
-import com.indigententerprises.applications.common.domain.RegistryRow;
 import com.indigententerprises.applications.shared.contracts.CanonicalProductV1Schema;
 import com.indigententerprises.applications.shared.contracts.MoneySchema;
 import com.indigententerprises.applications.shared.contracts.OptionValues;
 import com.indigententerprises.applications.shared.contracts.VariantV1Schema;
+import com.indigententerprises.applications.common.domain.RegistryRow;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -106,10 +106,10 @@ public class OfframpPublisherTest {
                     new OfframpPublisher(
                             OBJECT_MAPPER,
                             compiledRegistry,
-                            producer
+                            producer,
+                            "some-topic"
                     );
             systemUnderTest.send(
-                    "topic",
                     "key",
                     "urn:indigententerprises:catalog:canonical-product",
                     1,
@@ -127,7 +127,8 @@ public class OfframpPublisherTest {
                 new OfframpPublisher(
                         OBJECT_MAPPER,
                         compiledRegistry,
-                        producer
+                        producer,
+                        "some-topic"
                 );
         final OptionValues optionValues = new OptionValues();
         optionValues.setAdditionalProperty("pants", "off");
@@ -159,7 +160,6 @@ public class OfframpPublisherTest {
         cannonicalProduct.setUpdatedAt(date);
 
         systemUnderTest.send(
-                "topic",
                 "key",
                 "urn:indigententerprises:catalog:canonical-product",
                 1,
