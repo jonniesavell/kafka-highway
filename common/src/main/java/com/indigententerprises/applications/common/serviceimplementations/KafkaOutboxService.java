@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.serviceinterfaces.DuplicateEntryException;
+import com.indigententerprises.applications.common.serviceinterfaces.IgnoredEntryException;
 import com.indigententerprises.applications.common.domain.DestinationKind;
 import com.indigententerprises.applications.common.domain.ErrorKind;
 import com.indigententerprises.applications.common.domain.OutboxRecord;
@@ -21,10 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
-/**
- * TODO: policy: one nuance: you might choose not to outbox “truly irrelevant” event types
- *                 (if your router only owns some domains).
- */
 public class KafkaOutboxService
         implements com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService {
 
@@ -50,7 +47,8 @@ public class KafkaOutboxService
 
     @Override
     @Transactional
-    public OutboxRecord insert(final ConsumerRecord<String, String> consumerRecord) throws DuplicateEntryException {
+    public OutboxRecord insert(final ConsumerRecord<String, String> consumerRecord)
+            throws DuplicateEntryException, IgnoredEntryException {
         final OutboxRecord outboxRecord = new OutboxRecord();
         outboxRecord.setSourceTopic(consumerRecord.topic());
         outboxRecord.setSourcePartition(consumerRecord.partition());
@@ -98,13 +96,13 @@ public class KafkaOutboxService
                         outboxRecord.setErrorDetail(errors.getFirst().getMessage());
                     }
                 } catch (IllegalArgumentException e) {
-                    outboxRecord.setDestinationKind(DestinationKind.DLT.name());
-                    outboxRecord.setDestinationTopic(dltTopic);
-                    outboxRecord.setEventType(eventType);
-                    outboxRecord.setVersion(version);
-                    outboxRecord.setValidationOk(false);
-                    outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.toString());
-                    outboxRecord.setErrorDetail("no meaningful information provided");
+                    /*
+                     * TODO: policy: avoid outboxing “truly irrelevant” event types. if our
+                     *                 CompiledRegistry is not aware of the record type, then
+                     *                 we ignore it. a bad actor can certainly submit garbage
+                     *                 to the highway, but we need not pass that garbage along.
+                     */
+                    throw new IgnoredEntryException();
                 }
             }
         } catch (JsonProcessingException e) {

@@ -3,11 +3,11 @@ package com.indigententerprises.applications.common.infrastructure;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.indigententerprises.applications.common.domain.DestinationKind;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
 import com.indigententerprises.applications.common.serviceinterfaces.DuplicateEntryException;
+import com.indigententerprises.applications.common.serviceinterfaces.IgnoredEntryException;
 import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 
@@ -84,7 +84,7 @@ public final class HighwayConsumer implements Runnable {
 
                     try {
                         kafkaOutboxService.insert(record);
-                    } catch (DuplicateEntryException ignore) {}
+                    } catch (DuplicateEntryException | IgnoredEntryException ignore) {}
 
                     // if we couldn't safely handle (including DLT publish), do not commit;
                     // letting the process restart will re-deliver.
