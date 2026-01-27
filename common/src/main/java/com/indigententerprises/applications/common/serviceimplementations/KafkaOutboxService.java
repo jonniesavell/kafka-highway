@@ -21,6 +21,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+/**
+ * TODO: policy: one nuance: you might choose not to outbox “truly irrelevant” event types
+ *                 (if your router only owns some domains).
+ */
 public class KafkaOutboxService
         implements com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService {
 
