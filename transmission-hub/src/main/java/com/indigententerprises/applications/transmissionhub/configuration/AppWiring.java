@@ -4,8 +4,11 @@ import com.indigententerprises.applications.common.infrastructure.HighwayConsume
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
+import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
+import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +48,13 @@ public class AppWiring {
     @Value("${transmission.hub.group.id}")
     private String groupId;
 
+    private OutboxRepository outboxRepository;
+
+    @Autowired
+    public void setOutboxRepository(final OutboxRepository outboxRepository) {
+        this.outboxRepository = outboxRepository;
+    }
+
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
@@ -73,40 +83,63 @@ public class AppWiring {
     }
 
     @Bean
+    public CompiledRegistry compiledRegistry(
+            final ObjectMapper objectMapper,
+            final JdbcTemplate jdbcTemplate
+    ) {
+        // note that json_schema is of type jsonb
+        final String sql =
+                "SELECT r.event_type, r.version, r.payload_class, r.json_schema " +
+                        "  FROM operations.schema_registry r " +
+                        " WHERE r.enabled = true";
+
+        final RowMapper<RegistryRow> mapper = (rs, rowNum) -> {
+            final String eventType = rs.getString("event_type");
+            final int version = rs.getInt("version");
+            final String payloadClass = rs.getString("payload_class");
+
+            // json_schema comes out as a JSON string; parse into JsonNode
+            final String schemaJson = rs.getString("json_schema");
+            try {
+                return new RegistryRow(
+                        eventType,
+                        version,
+                        payloadClass,
+                        objectMapper.readTree(schemaJson)
+                );
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
+        final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
+        return compiledRegistry;
+    }
+
+    @Bean
+    public KafkaOutboxService getKafkaOutboxService(
+            final ObjectMapper objectMapper,
+            final CompiledRegistry compiledRegistry
+    ) {
+        final KafkaOutboxService kafkaOutboxService =
+                new com.indigententerprises.applications.common.serviceimplementations.KafkaOutboxService(
+                        objectMapper,
+                        outboxRepository,
+                        compiledRegistry
+                );
+        return kafkaOutboxService;
+    }
+
+    @Bean
     public ApplicationRunner runner(
-            final JdbcTemplate jdbcTemplate,
+            final CompiledRegistry compiledRegistry,
+            final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
             final KafkaProducer<String, String> producer,
             final ExecutorService consumerExecutor
     ) {
         return args -> {
-            // note that json_schema is of type jsonb
-            final String sql =
-                    "SELECT r.event_type, r.version, r.payload_class, r.json_schema " +
-                    "  FROM operations.schema_registry r " +
-                    " WHERE r.enabled = true";
-
-            final RowMapper<RegistryRow> mapper = (rs, rowNum) -> {
-                final String eventType = rs.getString("event_type");
-                final int version = rs.getInt("version");
-                final String payloadClass = rs.getString("payload_class");
-
-                // json_schema comes out as a JSON string; parse into JsonNode
-                final String schemaJson = rs.getString("json_schema");
-                try {
-                    return new RegistryRow(
-                            eventType,
-                            version,
-                            payloadClass,
-                            objectMapper.readTree(schemaJson)
-                    );
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-            };
-
-            final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
-            final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
             final OfframpPublisher offrampPublisher =
                     new OfframpPublisher(
                             objectMapper,
@@ -119,7 +152,9 @@ public class AppWiring {
                     bootstrapServers,
                     groupId,
                     highwayTopic,
+                    offrampTopic,
                     dltTopic,
+                    kafkaOutboxService,
                     objectMapper,
                     compiledRegistry,
                     offrampPublisher,

@@ -63,11 +63,11 @@ public final class OfframpPublisher {
                                 correlationId,
                                 payloadNode
                         );
-                final String json = objectMapper.writeValueAsString(env);
-                producer.send(new ProducerRecord<>(offrampTopic, key, json)).get();
+                final String jsonOutput = objectMapper.writeValueAsString(env);
+                producer.send(new ProducerRecord<>(offrampTopic, key, jsonOutput)).get();
             }
         } catch (IllegalArgumentException e) {
-            throw new TypeConformanceException("invalid type @JsonPublisher", e);
+            throw new TypeConformanceException("invalid type", e);
         }
     }
 }

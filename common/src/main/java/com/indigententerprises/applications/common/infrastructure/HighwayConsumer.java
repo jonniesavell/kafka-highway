@@ -3,9 +3,12 @@ package com.indigententerprises.applications.common.infrastructure;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.indigententerprises.applications.common.domain.DestinationKind;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
+import com.indigententerprises.applications.common.serviceinterfaces.DuplicateEntryException;
+import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 
 import com.networknt.schema.Error;
@@ -28,25 +31,31 @@ import java.util.Properties;
 
 public final class HighwayConsumer implements Runnable {
     private final KafkaConsumer<String, String> consumer;
+    private final KafkaOutboxService kafkaOutboxService;
     private final ObjectMapper objectMapper;
     private final CompiledRegistry registry;
     private final OfframpPublisher offrampPublisher;
     private final DltPublisher dltPublisher;
     private final String highwayTopic;
+    private final String offrampTopic;
     private final String dltTopic;
 
     public HighwayConsumer(
             final String bootstrapServers,
             final String groupId,
             final String highwayTopic,
+            final String offrampTopic,
             final String dltTopic,
+            final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
             final CompiledRegistry registry,
             final OfframpPublisher offrampPublisher,
             final DltPublisher dltPublisher
     ) {
         this.highwayTopic = highwayTopic;
+        this.offrampTopic = offrampTopic;
         this.dltTopic = dltTopic;
+        this.kafkaOutboxService = kafkaOutboxService;
         this.objectMapper = objectMapper;
         this.registry = registry;
         this.offrampPublisher = offrampPublisher;
@@ -76,17 +85,14 @@ public final class HighwayConsumer implements Runnable {
                 for (final ConsumerRecord<String, String> record : records) {
                     final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
 
-                    boolean okToCommit = handleRecord(record);
+                    try {
+                        kafkaOutboxService.insert(record, DestinationKind.OFFRAMP, offrampTopic);
+                    } catch (DuplicateEntryException ignore) {}
 
-                    if (okToCommit) {
-                        // commit “next offset”
-                        offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
-                    } else {
-                        // if we couldn't safely handle (including DLT publish), do not commit;
-                        // letting the process restart will re-deliver.
-                        // sadly, Dave, we cannot do that; the theory is incorrect: the SHOW must go on.
-                        offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
-                    }
+                    // if we couldn't safely handle (including DLT publish), do not commit;
+                    // letting the process restart will re-deliver.
+                    // sadly, Dave, we cannot do that; the theory is incorrect: the SHOW must go on.
+                    offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
                 }
 
                 if (!offsetsToCommit.isEmpty()) {

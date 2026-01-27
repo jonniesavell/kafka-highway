@@ -1,4 +1,4 @@
-package com.indigententerprises.applications.transmissionhub;
+package com.indigententerprises.applications;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
