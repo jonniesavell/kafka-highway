@@ -37,14 +37,12 @@ public final class HighwayConsumer implements Runnable {
     private final OfframpPublisher offrampPublisher;
     private final DltPublisher dltPublisher;
     private final String highwayTopic;
-    private final String offrampTopic;
     private final String dltTopic;
 
     public HighwayConsumer(
             final String bootstrapServers,
             final String groupId,
             final String highwayTopic,
-            final String offrampTopic,
             final String dltTopic,
             final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
@@ -53,7 +51,6 @@ public final class HighwayConsumer implements Runnable {
             final DltPublisher dltPublisher
     ) {
         this.highwayTopic = highwayTopic;
-        this.offrampTopic = offrampTopic;
         this.dltTopic = dltTopic;
         this.kafkaOutboxService = kafkaOutboxService;
         this.objectMapper = objectMapper;
@@ -86,7 +83,7 @@ public final class HighwayConsumer implements Runnable {
                     final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
 
                     try {
-                        kafkaOutboxService.insert(record, DestinationKind.OFFRAMP, offrampTopic);
+                        kafkaOutboxService.insert(record);
                     } catch (DuplicateEntryException ignore) {}
 
                     // if we couldn't safely handle (including DLT publish), do not commit;

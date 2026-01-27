@@ -27,31 +27,31 @@ public class KafkaOutboxService
     private final ObjectMapper objectMapper;
     private final OutboxRepository outboxRepository;
     private final CompiledRegistry registry;
+    private final String offrampTopic;
+    private final String dltTopic;
 
     public KafkaOutboxService(
             final ObjectMapper objectMapper,
             final OutboxRepository outboxRepository,
-            final CompiledRegistry registry
+            final CompiledRegistry registry,
+            final String offrampTopic,
+            final String dltTopic
     ) {
         this.objectMapper = objectMapper;
         this.outboxRepository = outboxRepository;
         this.registry = registry;
+        this.offrampTopic = offrampTopic;
+        this.dltTopic = dltTopic;
     }
 
     @Override
     @Transactional
-    public OutboxRecord insert(
-            final ConsumerRecord<String, String> consumerRecord,
-            final DestinationKind destinationKind,
-            final String destinationTopic // cannot be known until runtime, based upon the HighwayConsumer's analysis
-    ) throws DuplicateEntryException {
+    public OutboxRecord insert(final ConsumerRecord<String, String> consumerRecord) throws DuplicateEntryException {
         final OutboxRecord outboxRecord = new OutboxRecord();
         outboxRecord.setSourceTopic(consumerRecord.topic());
         outboxRecord.setSourcePartition(consumerRecord.partition());
         outboxRecord.setSourceOffset(consumerRecord.offset());
 
-        outboxRecord.setDestinationKind(destinationKind.name());
-        outboxRecord.setDestinationTopic(destinationTopic);
         outboxRecord.setDestinationKey(consumerRecord.key()); // preserve
 
         outboxRecord.setEnvelopeJson(consumerRecord.value());
@@ -66,6 +66,8 @@ public class KafkaOutboxService
             final Integer version = versionNode == null ? null : versionNode.asInt();
 
             if (eventType == null || version == null) {
+                outboxRecord.setDestinationKind(DestinationKind.DLT.name());
+                outboxRecord.setDestinationTopic(dltTopic);
                 outboxRecord.setEventType(eventType);
                 outboxRecord.setVersion(version);
                 outboxRecord.setValidationOk(false);
@@ -81,20 +83,29 @@ public class KafkaOutboxService
                     outboxRecord.setValidationOk(errors.isEmpty());
 
                     if (errors.isEmpty()) {
+                        outboxRecord.setDestinationKind(DestinationKind.OFFRAMP.name());
+                        outboxRecord.setDestinationTopic(offrampTopic);
                         outboxRecord.setErrorKind(null);
                         outboxRecord.setErrorDetail(null);
                     } else {
+                        outboxRecord.setDestinationKind(DestinationKind.DLT.name());
+                        outboxRecord.setDestinationTopic(dltTopic);
                         outboxRecord.setErrorKind(ErrorKind.SCHEMA_INVALID.toString());
                         outboxRecord.setErrorDetail(errors.getFirst().getMessage());
                     }
                 } catch (IllegalArgumentException e) {
+                    outboxRecord.setDestinationKind(DestinationKind.DLT.name());
+                    outboxRecord.setDestinationTopic(dltTopic);
                     outboxRecord.setEventType(eventType);
                     outboxRecord.setVersion(version);
+                    outboxRecord.setValidationOk(false);
                     outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.toString());
                     outboxRecord.setErrorDetail("no meaningful information provided");
                 }
             }
         } catch (JsonProcessingException e) {
+            outboxRecord.setDestinationKind(DestinationKind.DLT.name());
+            outboxRecord.setDestinationTopic(dltTopic);
             outboxRecord.setEventType(null);
             outboxRecord.setVersion(null);
             outboxRecord.setValidationOk(false);

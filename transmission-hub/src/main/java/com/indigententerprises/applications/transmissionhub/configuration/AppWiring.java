@@ -126,7 +126,9 @@ public class AppWiring {
                 new com.indigententerprises.applications.common.serviceimplementations.KafkaOutboxService(
                         objectMapper,
                         outboxRepository,
-                        compiledRegistry
+                        compiledRegistry,
+                        offrampTopic,
+                        dltTopic
                 );
         return kafkaOutboxService;
     }
@@ -152,7 +154,6 @@ public class AppWiring {
                     bootstrapServers,
                     groupId,
                     highwayTopic,
-                    offrampTopic,
                     dltTopic,
                     kafkaOutboxService,
                     objectMapper,

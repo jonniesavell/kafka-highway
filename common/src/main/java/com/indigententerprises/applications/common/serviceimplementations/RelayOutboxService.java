@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 
 public class RelayOutboxService
-        implements com.indigententerprises.applications.common.serviceinterfaces.RelayOutboxService {
+{ //implements com.indigententerprises.applications.common.serviceinterfaces.RelayOutboxService {
 
     private final OutboxRepository outboxRepository;
 
