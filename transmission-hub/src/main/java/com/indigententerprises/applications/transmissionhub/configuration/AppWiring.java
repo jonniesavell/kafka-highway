@@ -7,15 +7,14 @@ import com.indigententerprises.applications.common.serviceimplementations.DltPub
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.RelayOutboxService;
 import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
+import com.indigententerprises.applications.common.serviceinterfaces.OutboxCleanupService;
+import com.indigententerprises.applications.common.repositories.OutboxMaintenanceRepository;
 import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -61,12 +60,11 @@ public class AppWiring {
     @Value("${transmission.hub.delivery.timeout.ms.config}")
     private long timeoutMs;
 
-    private OutboxRepository outboxRepository;
+    @Value("${transmission.hub.poller.max.number.exceptions}")
+    private int maxNumberOfExceptions;
 
-    @Autowired
-    public void setOutboxRepository(final OutboxRepository outboxRepository) {
-        this.outboxRepository = outboxRepository;
-    }
+    @Value("${transmission.hub.relay.batch.size}")
+    private int relayBatchSize;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -135,6 +133,7 @@ public class AppWiring {
     @Bean
     public KafkaOutboxService getKafkaOutboxService(
             final ObjectMapper objectMapper,
+            final OutboxRepository outboxRepository,
             final CompiledRegistry compiledRegistry
     ) {
         final KafkaOutboxService kafkaOutboxService =
@@ -197,6 +196,7 @@ public class AppWiring {
     public RelayOutboxService  relayOutboxService(
             final OfframpPublisher offrampPublisher,
             final DltPublisher dltPublisher,
+            final OutboxRepository outboxRepository,
             final PlatformTransactionManager transactionManager
     ) {
         final RelayOutboxService relayOutboxService =
@@ -205,17 +205,34 @@ public class AppWiring {
                         dltPublisher,
                         outboxRepository,
                         transactionManager,
-                        100
+                        relayBatchSize
                 );
         return relayOutboxService;
     }
 
     @Bean
+    public OutboxCleanupService outboxCleanupService(
+            final OutboxMaintenanceRepository outboxMaintenanceRepository
+    ) {
+        final OutboxCleanupService outboxCleanupService =
+                new com.indigententerprises.applications.common.serviceimplementations.OutboxCleanupService(
+                        outboxMaintenanceRepository
+                );
+        return outboxCleanupService;
+    }
+
+    @Bean
     public OutboxRecordPoller outboxRecordPoller(
             final RelayOutboxService relayOutboxService,
+            final OutboxCleanupService outboxCleanupService,
             final ApplicationContext applicationContext
     ) {
-        final OutboxRecordPoller outboxRecordPoller = new OutboxRecordPoller(relayOutboxService);
+        final OutboxRecordPoller outboxRecordPoller =
+                new OutboxRecordPoller(
+                        relayOutboxService,
+                        outboxCleanupService,
+                        maxNumberOfExceptions
+                );
         return outboxRecordPoller;
     }
 

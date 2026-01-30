@@ -1,5 +1,6 @@
 package com.indigententerprises.applications.common.infrastructure;
 
+import com.indigententerprises.applications.common.serviceinterfaces.OutboxCleanupService;
 import com.indigententerprises.applications.common.serviceinterfaces.RelayOutboxService;
 
 import org.springframework.beans.BeansException;
@@ -20,16 +21,22 @@ public class OutboxRecordPoller implements Runnable, ApplicationContextAware {
     private static final Logger log = LoggerFactory.getLogger(OutboxRecordPoller.class);
 
     private final RelayOutboxService relayOutboxService;
+    private final OutboxCleanupService outboxCleanupService;
     private final long maxWaitTime;
     private final int maxNumberOfExceptions;
     private final Lock lock;
 
     private ApplicationContext applicationContext;
 
-    public OutboxRecordPoller(final RelayOutboxService relayOutboxService) {
+    public OutboxRecordPoller(
+            final RelayOutboxService relayOutboxService,
+            final OutboxCleanupService outboxCleanupService,
+            final int maxNumberOfExceptions
+    ) {
         this.relayOutboxService = relayOutboxService;
+        this.outboxCleanupService = outboxCleanupService;
         this.maxWaitTime = 60L;
-        this.maxNumberOfExceptions = 10;
+        this.maxNumberOfExceptions = maxNumberOfExceptions;
         this.lock = new ReentrantLock();
     }
 
@@ -87,12 +94,37 @@ public class OutboxRecordPoller implements Runnable, ApplicationContextAware {
 
     @Scheduled(fixedRate=24, timeUnit=TimeUnit.HOURS)
     public void cleanup() {
-        lock.lock();
+        final int batchSize = 10_000;
+
+        // mutable data
+        int numberPurged;
 
         try {
-            // clean up the outbox
-        } finally {
-            lock.unlock();
+            do {
+                lock.lock();
+
+                try {
+                    numberPurged = outboxCleanupService.purgeDeliveredBatch(7, batchSize);
+                } finally {
+                    lock.unlock();
+                }
+            } while (numberPurged > 0);
+        } catch (RuntimeException e) {
+            log.error("runtime exception caught in cleanup of delivered messages", e);
+        }
+
+        try {
+            do {
+                lock.lock();
+
+                try {
+                    numberPurged = outboxCleanupService.purgeDeadBatch(90, batchSize);
+                } finally {
+                    lock.unlock();
+                }
+            } while (numberPurged > 0);
+        } catch (RuntimeException e) {
+            log.error("runtime exception caught in cleanup of dead messages", e);
         }
     }
 }
