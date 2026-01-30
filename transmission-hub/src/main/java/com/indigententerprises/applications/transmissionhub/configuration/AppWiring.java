@@ -1,9 +1,11 @@
 package com.indigententerprises.applications.transmissionhub.configuration;
 
 import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
+import com.indigententerprises.applications.common.infrastructure.OutboxRecordPoller;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
+import com.indigententerprises.applications.common.serviceimplementations.RelayOutboxService;
 import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
 import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.domain.RegistryRow;
@@ -28,6 +30,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.List;
 import java.util.Properties;
@@ -35,7 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Configuration
-public class AppWiring implements ApplicationContextAware {
+public class AppWiring {
 
     @Value("${transmission.hub.bootstrap.servers}")
     private String bootstrapServers;
@@ -65,13 +68,6 @@ public class AppWiring implements ApplicationContextAware {
         this.outboxRepository = outboxRepository;
     }
 
-    private ApplicationContext applicationContext;
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
-    }
-
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
@@ -82,8 +78,8 @@ public class AppWiring implements ApplicationContextAware {
     }
 
     @Bean(destroyMethod="shutdown")
-    public ExecutorService consumerExecutor() {
-        return Executors.newSingleThreadExecutor();
+    public ExecutorService executorService() {
+        return Executors.newFixedThreadPool(2);
     }
 
     @Bean
@@ -181,7 +177,8 @@ public class AppWiring implements ApplicationContextAware {
             final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
             final DltPublisher dltPublisher,
-            final OfframpPublisher offrampPublisher
+            final OfframpPublisher offrampPublisher,
+            final ApplicationContext applicationContext
     ) {
         final HighwayConsumer highwayConsumer = new HighwayConsumer(
                 bootstrapServers,
@@ -193,17 +190,52 @@ public class AppWiring implements ApplicationContextAware {
                 offrampPublisher,
                 dltPublisher
         );
-        highwayConsumer.setApplicationContext(applicationContext);
         return highwayConsumer;
     }
 
     @Bean
-    public ApplicationRunner runner(
+    public RelayOutboxService  relayOutboxService(
+            final OfframpPublisher offrampPublisher,
+            final DltPublisher dltPublisher,
+            final PlatformTransactionManager transactionManager
+    ) {
+        final RelayOutboxService relayOutboxService =
+                new RelayOutboxService(
+                        offrampPublisher,
+                        dltPublisher,
+                        outboxRepository,
+                        transactionManager,
+                        100
+                );
+        return relayOutboxService;
+    }
+
+    @Bean
+    public OutboxRecordPoller outboxRecordPoller(
+            final RelayOutboxService relayOutboxService,
+            final ApplicationContext applicationContext
+    ) {
+        final OutboxRecordPoller outboxRecordPoller = new OutboxRecordPoller(relayOutboxService);
+        return outboxRecordPoller;
+    }
+
+    @Bean
+    public ApplicationRunner highwayConsumerRunner(
             final HighwayConsumer highwayConsumer,
-            final ExecutorService consumerExecutor
+            final ExecutorService executorService
     ) {
         return args -> {
-            consumerExecutor.submit(highwayConsumer);
+            executorService.submit(highwayConsumer);
+        };
+    }
+
+    @Bean
+    public ApplicationRunner outboxRecordPollerRunner(
+            final OutboxRecordPoller outboxRecordPoller,
+            final ExecutorService executorService
+    ) {
+        return args -> {
+            executorService.submit(outboxRecordPoller);
         };
     }
 }

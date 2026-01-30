@@ -16,7 +16,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -27,12 +26,14 @@ public class RelayOutboxService
     private final OutboxRepository outboxRepository;
     private final DltPublisher dltPublisher;
     private final TransactionTemplate transactionTemplate;
+    private final int batchSize;
 
     public RelayOutboxService(
             final OfframpPublisher offrampPublisher,
             final DltPublisher dltPublisher,
             final OutboxRepository outboxRepository,
-            final PlatformTransactionManager transactionManager
+            final PlatformTransactionManager transactionManager,
+            final int batchSize
     ) {
         this.offrampPublisher = offrampPublisher;
         this.dltPublisher = dltPublisher;
@@ -40,65 +41,65 @@ public class RelayOutboxService
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        this.batchSize = batchSize;
     }
 
-    public void execute() {
+    @Override
+    public boolean executeBatch() throws RuntimeException {
 
-        final int batchSize = 100;
-
-        List<OutboxRecord> results;
-
-        do {
-            final Instant now = Instant.now();
-            results = transactionTemplate.execute(
-                    new TransactionCallback<List<OutboxRecord>>() {
-                        @Override
-                        public List<OutboxRecord> doInTransaction(final TransactionStatus status) {
-                            final Pageable pageable = PageRequest.of(0, batchSize);
-                            final Page<OutboxRecord> page = outboxRepository.findByCriteria(
-                                    OutboxStatus.PENDING.name(),
-                                    3,
-                                    pageable
-                            );
-                            return page.getContent();
-                        }
+        final Instant now = Instant.now();
+        final List<OutboxRecord> results = transactionTemplate.execute(
+                new TransactionCallback<List<OutboxRecord>>() {
+                    @Override
+                    public List<OutboxRecord> doInTransaction(final TransactionStatus status) {
+                        final Pageable pageable = PageRequest.of(0, batchSize);
+                        final Page<OutboxRecord> page = outboxRepository.findByCriteria(
+                                OutboxStatus.PENDING.name(),
+                                3,
+                                pageable
+                        );
+                        return page.getContent();
                     }
-            );
-
-            if (results == null) {
-                results = Collections.emptyList();
-            } else {
-                if (!results.isEmpty()) {
-                    final ArrayList<OutboxRecord> toUpdate = new ArrayList<>(results.size());
-
-                    for (final OutboxRecord outboxRecord : results) {
-                        final boolean success = handleRecord(outboxRecord);
-                        outboxRecord.setUpdatedAt(now);
-
-                        if (success) {
-                            outboxRecord.setStatus(OutboxStatus.DELIVERED.name());
-                        } else {
-                            int attemptCount = outboxRecord.getAttemptCount() + 1;
-
-                            if (attemptCount > 3) {
-                                outboxRecord.setStatus(OutboxStatus.DEAD.name());
-                            }
-
-                            outboxRecord.setAttemptCount(attemptCount);
-                        }
-
-                        toUpdate.add(outboxRecord);
-                    }
-
-                    transactionTemplate.executeWithoutResult(new Consumer<TransactionStatus>() {
-                        @Override
-                        public void accept(final TransactionStatus status) {
-                            outboxRepository.saveAll(toUpdate);
-                        }
-                    });
                 }
+        );
+
+        if (results == null) {
+            return false;
+        } else {
+            if (results.isEmpty()) {
+                return false;
+            } else {
+                final ArrayList<OutboxRecord> toUpdate = new ArrayList<>(results.size());
+
+                for (final OutboxRecord outboxRecord : results) {
+                    final boolean success = handleRecord(outboxRecord);
+                    outboxRecord.setUpdatedAt(now);
+
+                    if (success) {
+                        outboxRecord.setStatus(OutboxStatus.DELIVERED.name());
+                    } else {
+                        int attemptCount = outboxRecord.getAttemptCount() + 1;
+
+                        if (attemptCount > 3) {
+                            outboxRecord.setStatus(OutboxStatus.DEAD.name());
+                        }
+
+                        outboxRecord.setAttemptCount(attemptCount);
+                    }
+
+                    toUpdate.add(outboxRecord);
+                }
+
+                transactionTemplate.executeWithoutResult(new Consumer<TransactionStatus>() {
+                    @Override
+                    public void accept(final TransactionStatus status) {
+                        outboxRepository.saveAll(toUpdate);
+                    }
+                });
+
+                return true;
             }
-        } while (!results.isEmpty());
+        }
     }
 
     private boolean handleRecord(final OutboxRecord outboxRecord) {
