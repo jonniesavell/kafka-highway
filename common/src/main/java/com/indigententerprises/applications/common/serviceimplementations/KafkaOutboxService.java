@@ -57,7 +57,7 @@ public class KafkaOutboxService
         outboxRecord.setDestinationKey(consumerRecord.key()); // preserve
 
         outboxRecord.setEnvelopeJson(consumerRecord.value());
-        outboxRecord.setStatus(OutboxStatus.PENDING.toString());
+        outboxRecord.setStatus(OutboxStatus.PENDING.name());
 
         try {
             final JsonNode root = objectMapper.readTree(consumerRecord.value());
@@ -73,7 +73,7 @@ public class KafkaOutboxService
                 outboxRecord.setEventType(eventType);
                 outboxRecord.setVersion(version);
                 outboxRecord.setValidationOk(false);
-                outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.toString());
+                outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.name());
                 outboxRecord.setErrorDetail("event type or version is null");
             } else {
                 try {
@@ -92,7 +92,7 @@ public class KafkaOutboxService
                     } else {
                         outboxRecord.setDestinationKind(DestinationKind.DLT.name());
                         outboxRecord.setDestinationTopic(dltTopic);
-                        outboxRecord.setErrorKind(ErrorKind.SCHEMA_INVALID.toString());
+                        outboxRecord.setErrorKind(ErrorKind.SCHEMA_INVALID.name());
                         outboxRecord.setErrorDetail(errors.getFirst().getMessage());
                     }
                 } catch (IllegalArgumentException e) {
@@ -111,7 +111,7 @@ public class KafkaOutboxService
             outboxRecord.setEventType(null);
             outboxRecord.setVersion(null);
             outboxRecord.setValidationOk(false);
-            outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.toString());
+            outboxRecord.setErrorKind(ErrorKind.UNKNOWN_TYPE_VERSION.name());
             outboxRecord.setErrorDetail("cannot even extract event-type and version from malformed payload");
         }
 
