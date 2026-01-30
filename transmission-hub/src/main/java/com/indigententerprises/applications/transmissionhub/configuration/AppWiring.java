@@ -8,15 +8,19 @@ import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutbox
 import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.domain.RegistryRow;
 
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -31,7 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Configuration
-public class AppWiring {
+public class AppWiring implements ApplicationContextAware {
 
     @Value("${transmission.hub.bootstrap.servers}")
     private String bootstrapServers;
@@ -48,11 +52,24 @@ public class AppWiring {
     @Value("${transmission.hub.group.id}")
     private String groupId;
 
+    @Value("${transmission.hub.request.timout.ms.config}")
+    private long requestTimeoutMs;
+
+    @Value("${transmission.hub.delivery.timeout.ms.config}")
+    private long timeoutMs;
+
     private OutboxRepository outboxRepository;
 
     @Autowired
     public void setOutboxRepository(final OutboxRepository outboxRepository) {
         this.outboxRepository = outboxRepository;
+    }
+
+    private ApplicationContext applicationContext;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 
     @Bean
@@ -72,11 +89,13 @@ public class AppWiring {
     @Bean
     public KafkaProducer<String, String> producer() {
         final Properties props = new Properties();
-        props.put("bootstrap.servers", bootstrapServers);
-        props.put("acks", "all");
-        props.put("retries", 5);
-        props.put("key.serializer", StringSerializer.class.getName());
-        props.put("value.serializer", StringSerializer.class.getName());
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, String.valueOf(requestTimeoutMs));
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, String.valueOf(timeoutMs));
 
         final KafkaProducer<String, String> result = new KafkaProducer<>(props);
         return result;
@@ -134,34 +153,56 @@ public class AppWiring {
     }
 
     @Bean
-    public ApplicationRunner runner(
+    public DltPublisher dltPublisher(final KafkaProducer<String, String> producer) {
+        final DltPublisher dltPublisher = new DltPublisher(producer, dltTopic);
+        return dltPublisher;
+    }
+
+    @Bean
+    public OfframpPublisher offrampPublisher(
+            final ObjectMapper objectMapper,
+            final CompiledRegistry compiledRegistry,
+            final KafkaProducer<String, String> producer
+    ) {
+        final OfframpPublisher offrampPublisher =
+                new OfframpPublisher(
+                        objectMapper,
+                        compiledRegistry,
+                        producer,
+                        offrampTopic,
+                        requestTimeoutMs
+                );
+        return offrampPublisher;
+    }
+
+    @Bean
+    public HighwayConsumer highwayConsumer(
             final CompiledRegistry compiledRegistry,
             final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
-            final KafkaProducer<String, String> producer,
+            final DltPublisher dltPublisher,
+            final OfframpPublisher offrampPublisher
+    ) {
+        final HighwayConsumer highwayConsumer = new HighwayConsumer(
+                bootstrapServers,
+                groupId,
+                highwayTopic,
+                kafkaOutboxService,
+                objectMapper,
+                compiledRegistry,
+                offrampPublisher,
+                dltPublisher
+        );
+        highwayConsumer.setApplicationContext(applicationContext);
+        return highwayConsumer;
+    }
+
+    @Bean
+    public ApplicationRunner runner(
+            final HighwayConsumer highwayConsumer,
             final ExecutorService consumerExecutor
     ) {
         return args -> {
-            final OfframpPublisher offrampPublisher =
-                    new OfframpPublisher(
-                            objectMapper,
-                            compiledRegistry,
-                            producer,
-                            offrampTopic
-                    );
-            final DltPublisher dltPublisher = new DltPublisher(bootstrapServers);
-            final HighwayConsumer highwayConsumer = new HighwayConsumer(
-                    bootstrapServers,
-                    groupId,
-                    highwayTopic,
-                    dltTopic,
-                    kafkaOutboxService,
-                    objectMapper,
-                    compiledRegistry,
-                    offrampPublisher,
-                    dltPublisher
-            );
-
             consumerExecutor.submit(highwayConsumer);
         };
     }

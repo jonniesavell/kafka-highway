@@ -13,18 +13,14 @@ import java.util.concurrent.Future;
 
 public final class DltPublisher implements AutoCloseable {
     private final KafkaProducer<String, String> producer;
+    private final String dltTopic;
 
-    public DltPublisher(String bootstrapServers) {
-        final Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-
-        // DLT should be durable
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
-        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
-
-        this.producer = new KafkaProducer<>(props);
+    public DltPublisher(
+            final KafkaProducer<String, String> producer,
+            final String dltTopic
+    ) {
+        this.producer = producer;
+        this.dltTopic = dltTopic;
     }
 
     /**
@@ -34,19 +30,16 @@ public final class DltPublisher implements AutoCloseable {
      * otherwise this can fail with an invalid partition error.
      */
     public void publishBlocking(
-            final String dltTopic,
-            final int sourcePartition,
             final String key,
             final String originalJson,
             final String errorKind,
             final String errorDetail,
             final String sourceTopic,
+            final int sourcePartition,
             final long sourceOffset
     ) throws ExecutionException, InterruptedException {
-
-        final Integer destinationPartition = Integer.valueOf(sourcePartition);
         final ProducerRecord<String, String> record =
-                new ProducerRecord<>(dltTopic, destinationPartition, key, originalJson);
+                new ProducerRecord<>(dltTopic, key, originalJson);
 
         record.headers().add("dlt.errorKind", errorKind.getBytes(StandardCharsets.UTF_8));
         record.headers().add("dlt.errorDetail", errorDetail.getBytes(StandardCharsets.UTF_8));

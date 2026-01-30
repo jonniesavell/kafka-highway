@@ -1,8 +1,5 @@
 package com.indigententerprises.applications.common.infrastructure;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
 import com.indigententerprises.applications.common.serviceimplementations.DltPublisher;
 import com.indigententerprises.applications.common.serviceimplementations.OfframpPublisher;
@@ -11,7 +8,10 @@ import com.indigententerprises.applications.common.serviceinterfaces.IgnoredEntr
 import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
 import com.indigententerprises.applications.common.domain.CompiledEntry;
 
-import com.networknt.schema.Error;
+import org.springframework.beans.BeansException;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +22,14 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
+import com.networknt.schema.Error;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,7 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-public final class HighwayConsumer implements Runnable {
+public final class HighwayConsumer implements Runnable, ApplicationContextAware {
+
+    private static final Logger log = LoggerFactory.getLogger(HighwayConsumer.class);
+
     private final KafkaConsumer<String, String> consumer;
     private final KafkaOutboxService kafkaOutboxService;
     private final ObjectMapper objectMapper;
@@ -37,13 +48,13 @@ public final class HighwayConsumer implements Runnable {
     private final OfframpPublisher offrampPublisher;
     private final DltPublisher dltPublisher;
     private final String highwayTopic;
-    private final String dltTopic;
+
+    private ApplicationContext applicationContext;
 
     public HighwayConsumer(
             final String bootstrapServers,
             final String groupId,
             final String highwayTopic,
-            final String dltTopic,
             final KafkaOutboxService kafkaOutboxService,
             final ObjectMapper objectMapper,
             final CompiledRegistry registry,
@@ -51,7 +62,6 @@ public final class HighwayConsumer implements Runnable {
             final DltPublisher dltPublisher
     ) {
         this.highwayTopic = highwayTopic;
-        this.dltTopic = dltTopic;
         this.kafkaOutboxService = kafkaOutboxService;
         this.objectMapper = objectMapper;
         this.registry = registry;
@@ -71,38 +81,49 @@ public final class HighwayConsumer implements Runnable {
     }
 
     @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
+
+    @Override
     public void run() {
-        consumer.subscribe(Collections.singletonList(highwayTopic));
-
         try {
-            while (!Thread.currentThread().isInterrupted()) {
-                final ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
-                final Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = new HashMap<>();
+            consumer.subscribe(Collections.singletonList(highwayTopic));
 
-                for (final ConsumerRecord<String, String> record : records) {
-                    final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    final ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+                    final Map<TopicPartition, OffsetAndMetadata> offsetsToCommit = new HashMap<>();
 
-                    try {
-                        kafkaOutboxService.insert(record);
-                    } catch (DuplicateEntryException | IgnoredEntryException ignore) {}
+                    for (final ConsumerRecord<String, String> record : records) {
+                        final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
 
-                    // if we couldn't safely handle (including DLT publish), do not commit;
-                    // letting the process restart will re-deliver.
-                    // sadly, Dave, we cannot do that; the theory is incorrect: the SHOW must go on.
-                    offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
-                }
+                        try {
+                            kafkaOutboxService.insert(record);
+                        } catch (DuplicateEntryException | IgnoredEntryException ignore) {}
 
-                if (!offsetsToCommit.isEmpty()) {
+                        offsetsToCommit.put(tp, new OffsetAndMetadata(record.offset() + 1));
+                    }
+
                     consumer.commitSync(offsetsToCommit);
                 }
+            } catch (WakeupException ignored) {
+                // shutdown
+            } finally {
+                consumer.close();
             }
-        } catch (WakeupException ignored) {
-            // shutdown
-        } finally {
-            consumer.close();
+        } catch (RuntimeException e) {
+            // TODO: policy: KafkaOutboxService throws RuntimeException
+            log.error("unexpected error occurred during consumption", e);
+
+            SpringApplication.exit(applicationContext, () -> 1);
+            System.exit(1);
         }
     }
 
+    /**
+     * TODO: dead code
+     */
     private boolean handleRecord(final ConsumerRecord<String, String> record) {
         final String key = record.key();
         final String json = record.value();
@@ -116,13 +137,12 @@ public final class HighwayConsumer implements Runnable {
 
             if (typeNode == null || versionNode == null || payloadNode == null) {
                 dltPublisher.publishBlocking(
-                        dltTopic,
-                        record.partition(),
                         key,
                         json,
                         "ENVELOPE_INVALID",
                         "Missing required fields: type, v, payload",
                         record.topic(),
+                        record.partition(),
                         record.offset()
                 );
                 return true;
@@ -137,13 +157,12 @@ public final class HighwayConsumer implements Runnable {
                 entry = registry.require(eventType, version);
             } catch (IllegalArgumentException e) {
                 dltPublisher.publishBlocking(
-                        dltTopic,
-                        record.partition(),
                         key,
                         json,
                         "UNKNOWN_TYPE_VERSION",
                         e.getMessage(),
                         record.topic(),
+                        record.partition(),
                         record.offset()
                 );
                 return true;
@@ -156,13 +175,12 @@ public final class HighwayConsumer implements Runnable {
                 // abbreviated error
                 final String errorDetail = errors.iterator().next().getMessage();
                 dltPublisher.publishBlocking(
-                        dltTopic,
-                        record.partition(),
                         key,
                         json,
                         "SCHEMA_INVALID",
                         errorDetail,
                         record.topic(),
+                        record.partition(),
                         record.offset()
                 );
                 return true;
@@ -182,13 +200,12 @@ public final class HighwayConsumer implements Runnable {
         } catch (Exception e) {
             try {
                 dltPublisher.publishBlocking(
-                        dltTopic,
-                        record.partition(),
                         key,
                         json,
                         "EXCEPTION",
                         e.getClass().getName() + ": " + e.getMessage(),
                         record.topic(),
+                        record.partition(),
                         record.offset()
                 );
                 return true;

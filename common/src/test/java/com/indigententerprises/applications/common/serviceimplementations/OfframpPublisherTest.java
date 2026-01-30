@@ -107,7 +107,8 @@ public class OfframpPublisherTest {
                             OBJECT_MAPPER,
                             compiledRegistry,
                             producer,
-                            "some-topic"
+                            "some-topic",
+                            1000L
                     );
             systemUnderTest.send(
                     "key",
@@ -128,7 +129,8 @@ public class OfframpPublisherTest {
                         OBJECT_MAPPER,
                         compiledRegistry,
                         producer,
-                        "some-topic"
+                        "some-topic",
+                        1000L
                 );
         final OptionValues optionValues = new OptionValues();
         optionValues.setAdditionalProperty("pants", "off");
