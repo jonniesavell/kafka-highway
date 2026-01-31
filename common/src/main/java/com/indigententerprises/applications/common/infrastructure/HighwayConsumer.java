@@ -6,7 +6,6 @@ import com.indigententerprises.applications.common.serviceimplementations.Offram
 import com.indigententerprises.applications.common.serviceinterfaces.DuplicateEntryException;
 import com.indigententerprises.applications.common.serviceinterfaces.IgnoredEntryException;
 import com.indigententerprises.applications.common.serviceinterfaces.KafkaOutboxService;
-import com.indigententerprises.applications.common.domain.CompiledEntry;
 
 import org.springframework.beans.BeansException;
 import org.springframework.boot.SpringApplication;
@@ -22,9 +21,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import com.networknt.schema.Error;
-
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
@@ -33,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -43,10 +38,6 @@ public final class HighwayConsumer implements Runnable, ApplicationContextAware 
 
     private final KafkaConsumer<String, String> consumer;
     private final KafkaOutboxService kafkaOutboxService;
-    private final ObjectMapper objectMapper;
-    private final CompiledRegistry registry;
-    private final OfframpPublisher offrampPublisher;
-    private final DltPublisher dltPublisher;
     private final String highwayTopic;
 
     private ApplicationContext applicationContext;
@@ -55,18 +46,10 @@ public final class HighwayConsumer implements Runnable, ApplicationContextAware 
             final String bootstrapServers,
             final String groupId,
             final String highwayTopic,
-            final KafkaOutboxService kafkaOutboxService,
-            final ObjectMapper objectMapper,
-            final CompiledRegistry registry,
-            final OfframpPublisher offrampPublisher,
-            final DltPublisher dltPublisher
+            final KafkaOutboxService kafkaOutboxService
     ) {
         this.highwayTopic = highwayTopic;
         this.kafkaOutboxService = kafkaOutboxService;
-        this.objectMapper = objectMapper;
-        this.registry = registry;
-        this.offrampPublisher = offrampPublisher;
-        this.dltPublisher = dltPublisher;
 
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -118,101 +101,6 @@ public final class HighwayConsumer implements Runnable, ApplicationContextAware 
 
             SpringApplication.exit(applicationContext, () -> 1);
             System.exit(1);
-        }
-    }
-
-    /**
-     * TODO: dead code
-     */
-    private boolean handleRecord(final ConsumerRecord<String, String> record) {
-        final String key = record.key();
-        final String json = record.value();
-
-        try {
-            final JsonNode root = objectMapper.readTree(json);
-            final JsonNode typeNode = root.get("type");
-            final JsonNode versionNode = root.get("v");
-            final JsonNode payloadNode = root.get("payload");
-            final JsonNode correlationIdNode = root.get("correlationId");
-
-            if (typeNode == null || versionNode == null || payloadNode == null) {
-                dltPublisher.publishBlocking(
-                        key,
-                        json,
-                        "ENVELOPE_INVALID",
-                        "Missing required fields: type, v, payload",
-                        record.topic(),
-                        record.partition(),
-                        record.offset()
-                );
-                return true;
-            }
-
-            final String eventType = typeNode.asText();
-            final int version = versionNode.asInt();
-            final String correlationId = correlationIdNode == null ? null : correlationIdNode.asText();
-            final CompiledEntry entry;
-
-            try {
-                entry = registry.require(eventType, version);
-            } catch (IllegalArgumentException e) {
-                dltPublisher.publishBlocking(
-                        key,
-                        json,
-                        "UNKNOWN_TYPE_VERSION",
-                        e.getMessage(),
-                        record.topic(),
-                        record.partition(),
-                        record.offset()
-                );
-                return true;
-            }
-
-            // validate BEFORE binding
-            final List<Error> errors = entry.getSchema().validate(payloadNode);
-
-            if (!errors.isEmpty()) {
-                // abbreviated error
-                final String errorDetail = errors.iterator().next().getMessage();
-                dltPublisher.publishBlocking(
-                        key,
-                        json,
-                        "SCHEMA_INVALID",
-                        errorDetail,
-                        record.topic(),
-                        record.partition(),
-                        record.offset()
-                );
-                return true;
-            }
-
-            // TODO: route/transform to roadways here: at highway speed, keep it lean
-            final Object payloadPojo = objectMapper.treeToValue(payloadNode, entry.getPayloadClass());
-            offrampPublisher.send(
-                    record.key(),
-                    eventType,
-                    version,
-                    payloadPojo,
-                    correlationId
-            );
-
-            return true;
-        } catch (Exception e) {
-            try {
-                dltPublisher.publishBlocking(
-                        key,
-                        json,
-                        "EXCEPTION",
-                        e.getClass().getName() + ": " + e.getMessage(),
-                        record.topic(),
-                        record.partition(),
-                        record.offset()
-                );
-                return true;
-            } catch (Exception dltEx) {
-                // DLT publish failed; do NOT commit. Let re-delivery happen.
-                return false;
-            }
         }
     }
 }

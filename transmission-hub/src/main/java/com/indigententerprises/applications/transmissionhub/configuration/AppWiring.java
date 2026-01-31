@@ -172,22 +172,14 @@ public class AppWiring {
 
     @Bean
     public HighwayConsumer highwayConsumer(
-            final CompiledRegistry compiledRegistry,
             final KafkaOutboxService kafkaOutboxService,
-            final ObjectMapper objectMapper,
-            final DltPublisher dltPublisher,
-            final OfframpPublisher offrampPublisher,
             final ApplicationContext applicationContext
     ) {
         final HighwayConsumer highwayConsumer = new HighwayConsumer(
                 bootstrapServers,
                 groupId,
                 highwayTopic,
-                kafkaOutboxService,
-                objectMapper,
-                compiledRegistry,
-                offrampPublisher,
-                dltPublisher
+                kafkaOutboxService
         );
         return highwayConsumer;
     }
