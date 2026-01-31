@@ -54,32 +54,3 @@ public final class SchemaRegistryFactory {
                 .build();
     }
 }
-
-//    public static SchemaRegistry create() {
-//        final ResourceLoaders resourceLoaders = ResourceLoaders.builder()
-//                .add(new IriResourceLoader())
-//                .build();
-//
-//        return SchemaRegistry.builder()
-//                .defaultDialect(SpecificationVersion.DRAFT_2020_12)
-//                .resourceLoaders(resourceLoaders)
-//                .build();
-//    }
-//    public static SchemaRegistry create() {
-//        // adjust builder method names to what IntelliJ offers in your 2.0.1 jar
-//        return SchemaRegistry.builder()
-//                .defaultDialect(SpecificationVersion.DRAFT_2020_12)
-//                .schemaLoaders(schemaLoaders -> {
-//                    schemaLoaders.add(
-//                            SchemaLoader.builder()
-//                                    .resourceLoader(new IriResourceLoader())
-//                                    .build()
-//                    );
-//
-//                    // If you have ClasspathResourceLoader, keep it too:
-//                    // schemaLoaders.add(SchemaLoader.builder()
-//                    //        .resourceLoader(new ClasspathResourceLoader())
-//                    //        .build());
-//                })
-//                .build();
-//    }

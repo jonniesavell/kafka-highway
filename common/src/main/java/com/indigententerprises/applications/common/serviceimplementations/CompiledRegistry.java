@@ -18,7 +18,6 @@ public final class CompiledRegistry {
     private final Map<String, CompiledEntry> entriesByKey;
 
     public CompiledRegistry(final List<RegistryRow> rows) {
-        //final SchemaRegistry schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12);
         final SchemaRegistry schemaRegistry = SchemaRegistryFactory.createHttpRefRegistry();
         final Map<String, CompiledEntry> map = new HashMap<>();
 

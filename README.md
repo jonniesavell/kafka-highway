@@ -12,9 +12,10 @@ this may include performing further routing to deliver messages to downstream to
 ## backlog
 
 - start with POLICY 1 (sync publish) DONE
-- move to POLICY 2 (outbox) IN-PROGRESS
-- embed the topic within the owning DltPublisher
+- move to POLICY 2 (outbox) DONE
+- embed the topic within the owning DltPublisher DONE
 - enhance the shared contract JSON schemas to support namespaces
+- create a simulator for highway population
 - modify the schema server to support query by namespace
 - modify networknt 2.0.1 operations to query the CompiledRegistry
 - move to POLICY 3 (Kafka transactions)
