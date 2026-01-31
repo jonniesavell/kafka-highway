@@ -121,7 +121,7 @@ public class RelayOutboxService
             } catch (ExecutionException | InterruptedException e) {
                 return false;
             }
-        } else if (outboxRecord.getDestinationKind().equals(DestinationKind.OFFRAMP.name())) {
+        } else if (DestinationKind.OFFRAMP.name().equals(outboxRecord.getDestinationKind())) {
             try {
                 offrampPublisher.send(outboxRecord);
                 return true;
