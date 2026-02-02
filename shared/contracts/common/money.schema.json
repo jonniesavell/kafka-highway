@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "http://localhost:8082/common/money.schema.json",
+  "$id": "urn:indigententerprises:common:money:1",
   "title": "Money",
   "type": "object",
   "additionalProperties": false,
