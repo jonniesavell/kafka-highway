@@ -1,4 +1,4 @@
-package com.indigententerprises.applications.shared.infrastructure;
+package com.indigententerprises.applications.classgenerationinfrastructure;
 
 import org.jsonschema2pojo.RuleLogger;
 
@@ -31,7 +31,7 @@ public class CustomRuleLogger implements RuleLogger {
 
     @Override
     public boolean isDebugEnabled() {
-        return false;
+        return true;
     }
 
     @Override
@@ -46,7 +46,7 @@ public class CustomRuleLogger implements RuleLogger {
 
     @Override
     public boolean isTraceEnabled() {
-        return false;
+        return true;
     }
 
     @Override

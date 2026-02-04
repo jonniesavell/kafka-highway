@@ -1,9 +1,9 @@
 \set ON_ERROR_STOP on
 
-\set ident_schema     `cat common/identifiers.schema.json`
-\set money_schema     `cat common/money.schema.json`
-\set variant_schema   `cat catalog/variant-v1.schema.json`
-\set canonical_schema `cat catalog/canonical-product-v1.schema.json`
+\set ident_schema     `cat contracts/common/identifiers.schema.json`
+\set money_schema     `cat contracts/common/money.schema.json`
+\set variant_schema   `cat contracts/catalog/variant-v1.schema.json`
+\set canonical_schema `cat contracts/catalog/canonical-product-v1.schema.json`
 
 INSERT
   INTO operations.schema_documents(schema_id, json_schema)

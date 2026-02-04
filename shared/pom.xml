@@ -39,25 +39,6 @@
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
-
-        <!-- HIGHly experimental -->
-        <dependency>
-            <groupId>org.jsonschema2pojo</groupId>
-            <artifactId>jsonschema2pojo-core</artifactId>
-            <version>1.2.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.17</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.17</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -65,12 +46,24 @@
             <plugin>
                 <groupId>org.jsonschema2pojo</groupId>
                 <artifactId>jsonschema2pojo-maven-plugin</artifactId>
-                <version>1.2.1</version>
+                <!-- version>1.2.1</version -->
+                <version>1.3.2</version>
+
+                <dependencies>
+                    <dependency>
+                        <groupId>com.indigententerprises.applications</groupId>
+                        <artifactId>class-generation-infrastructure</artifactId>
+                        <version>0.0.1-SNAPSHOT</version>
+                    </dependency>
+                </dependencies>
+
                 <configuration>
                     <annotationStyle>jackson2</annotationStyle>
-                    <sourcePaths>
+                    <!-- sourcePaths>
                         <sourcePath>${project.basedir}/../shared/contracts/catalog/canonical-product-v1.schema.json</sourcePath>
-                    </sourcePaths>
+                    </sourcePaths -->
+                    <sourceDirectory>${project.basedir}/../shared/contracts</sourceDirectory>
+                    <customRuleFactory>com.indigententerprises.applications.classgenerationinfrastructure.CustomRuleFactory</customRuleFactory>
                     <targetPackage>com.indigententerprises.applications.shared.contracts</targetPackage>
                 </configuration>
                 <executions>
