@@ -1,6 +1,5 @@
 package com.indigententerprises.applications.transmissionhub.configuration;
 
-import com.indigententerprises.applications.common.domain.SchemaRow;
 import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
 import com.indigententerprises.applications.common.infrastructure.OutboxRecordPoller;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
@@ -12,6 +11,7 @@ import com.indigententerprises.applications.common.serviceinterfaces.OutboxClean
 import com.indigententerprises.applications.common.repositories.OutboxMaintenanceRepository;
 import com.indigententerprises.applications.common.repositories.OutboxRepository;
 import com.indigententerprises.applications.common.domain.RegistryRow;
+import com.indigententerprises.applications.common.domain.SchemaRow;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
@@ -25,7 +25,6 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
