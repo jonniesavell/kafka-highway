@@ -8,30 +8,41 @@ import com.networknt.schema.Schema;
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.SchemaRegistry;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public final class CompiledRegistry {
     private final Map<String, CompiledEntry> entriesByKey;
 
-    public CompiledRegistry(final List<RegistryRow> rows) {
-        final SchemaRegistry schemaRegistry = SchemaRegistryFactory.createHttpRefRegistry();
+    public CompiledRegistry(
+            final List<RegistryRow> rows,
+            final Function<String, String> urnToSchemaText) {
+        final SchemaRegistry schemaRegistry = SchemaRegistryFactory.createRefRegistry(urnToSchemaText);
         final Map<String, CompiledEntry> map = new HashMap<>();
 
         for (RegistryRow row : rows) {
             final String key = key(row.getEventType(), row.getVersion());
-            final JsonNode schemaNode = row.getJsonSchema();
-            final Schema schema = schemaRegistry.getSchema(schemaNode.toString(), InputFormat.JSON);;
-            final Class<?> payloadClass;
+            final String schemaText = urnToSchemaText.apply(row.getSchemaId());
 
-            try {
-                payloadClass = Class.forName(row.getPayloadClass());
-                map.put(key, new CompiledEntry(row.getEventType(), row.getVersion(), payloadClass, schema));
-            } catch (ClassNotFoundException e) {
-                throw new IllegalStateException("payload_class not found on classpath: " + row.getPayloadClass(), e);
+            if (schemaText == null || schemaText.isBlank()) {
+                throw new IllegalStateException("schema not found for schemaId: " + row.getSchemaId());
+            } else {
+                final Schema schema = schemaRegistry.getSchema(schemaText, InputFormat.JSON);
+                final Class<?> payloadClass;
+
+                try {
+                    payloadClass = Class.forName(row.getPayloadClass());
+                    map.put(key, new CompiledEntry(row.getEventType(), row.getVersion(), payloadClass, schema));
+                } catch (ClassNotFoundException e) {
+                    final String message =
+                            String.format(
+                                    "payload_class not found on classpath: %s",
+                                    row.getPayloadClass()
+                            );
+                    throw new IllegalStateException(message, e);
+                }
             }
         }
 

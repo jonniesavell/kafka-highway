@@ -1,0 +1,17 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$id" : "classpath:/contracts-codegen/common/identifiers.schema.json",
+  "title" : "CommonIdentifiers",
+  "$defs" : {
+    "uuid" : {
+      "type" : "string",
+      "pattern" : "^[0-9a-fA-F-]{36}$"
+    },
+    "slug" : {
+      "type" : "string",
+      "pattern" : "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength" : 120
+    }
+  },
+  "x-canonical-urn" : "urn:indigententerprises:common:identifiers:1"
+}

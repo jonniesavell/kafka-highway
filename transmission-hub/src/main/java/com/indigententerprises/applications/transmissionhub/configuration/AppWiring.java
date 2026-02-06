@@ -1,5 +1,6 @@
 package com.indigententerprises.applications.transmissionhub.configuration;
 
+import com.indigententerprises.applications.common.domain.SchemaRow;
 import com.indigententerprises.applications.common.infrastructure.HighwayConsumer;
 import com.indigententerprises.applications.common.infrastructure.OutboxRecordPoller;
 import com.indigententerprises.applications.common.serviceimplementations.CompiledRegistry;
@@ -31,10 +32,15 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Configuration
 public class AppWiring {
@@ -96,13 +102,43 @@ public class AppWiring {
     }
 
     @Bean
-    public CompiledRegistry compiledRegistry(
-            final ObjectMapper objectMapper,
-            final JdbcTemplate jdbcTemplate
-    ) {
+    public Function<String, String> mapping(final JdbcTemplate jdbcTemplate) {
         // note that json_schema is of type jsonb
         final String sql =
-                "SELECT r.event_type, r.version, r.payload_class, r.json_schema " +
+                "SELECT d.schema_id, d.json_schema " +
+                        "  FROM operations.schema_documents d" +
+                        " WHERE d.enabled = true";
+        final RowMapper<SchemaRow> mapper = new RowMapper<SchemaRow>() {
+            @Override
+            public SchemaRow mapRow(final ResultSet rs, final int rowNum) throws SQLException {
+                final String schemaId = rs.getString("schema_id");
+                final String jsonSchema = rs.getString("json_schema");
+                return new SchemaRow(schemaId, jsonSchema);
+            }
+        };
+        final List<SchemaRow> rows = jdbcTemplate.query(sql, mapper);
+        final Map<String, String> mapping = rows
+                .stream()
+                .collect(Collectors.toMap(
+                        schemaRow -> schemaRow.getSchemaId(),
+                        schemaRow -> schemaRow.getJsonSchema()
+                ));
+        final Function<String, String> result = new Function<String, String>() {
+            @Override
+            public String apply(final String s) {
+                return mapping.get(s);
+            }
+        };
+        return result;
+    }
+
+    @Bean
+    public CompiledRegistry compiledRegistry(
+            final JdbcTemplate jdbcTemplate,
+            final Function<String, String> mapping
+    ) {
+        final String sql =
+                "SELECT r.event_type, r.version, r.payload_class, r.schema_id " +
                         "  FROM operations.schema_registry r " +
                         " WHERE r.enabled = true";
 
@@ -110,23 +146,16 @@ public class AppWiring {
             final String eventType = rs.getString("event_type");
             final int version = rs.getInt("version");
             final String payloadClass = rs.getString("payload_class");
-
-            // json_schema comes out as a JSON string; parse into JsonNode
-            final String schemaJson = rs.getString("json_schema");
-            try {
-                return new RegistryRow(
-                        eventType,
-                        version,
-                        payloadClass,
-                        objectMapper.readTree(schemaJson)
-                );
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
+            final String schemaId = rs.getString("schema_id");
+            return new RegistryRow(
+                    eventType,
+                    version,
+                    payloadClass,
+                    schemaId
+            );
         };
-
         final List<RegistryRow> rows = jdbcTemplate.query(sql, mapper);
-        final CompiledRegistry compiledRegistry = new CompiledRegistry(rows);
+        final CompiledRegistry compiledRegistry = new CompiledRegistry(rows, mapping);
         return compiledRegistry;
     }
 

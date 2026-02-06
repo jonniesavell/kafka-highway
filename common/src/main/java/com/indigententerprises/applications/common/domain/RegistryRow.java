@@ -1,22 +1,35 @@
 package com.indigententerprises.applications.common.domain;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 public final class RegistryRow {
     private final String eventType;
     private final int version;
     private final String payloadClass;
-    private final JsonNode jsonSchema;
+    private final String schemaId;
 
-    public RegistryRow(String eventType, int version, String payloadClass, JsonNode jsonSchema) {
+    public RegistryRow(
+            final String eventType,
+            final int version,
+            final String payloadClass,
+            final String schemaId) {
         this.eventType = eventType;
         this.version = version;
         this.payloadClass = payloadClass;
-        this.jsonSchema = jsonSchema;
+        this.schemaId = schemaId;
     }
 
-    public String getEventType() { return eventType; }
-    public int getVersion() { return version; }
-    public String getPayloadClass() { return payloadClass; }
-    public JsonNode getJsonSchema() { return jsonSchema; }
+    public String getEventType() {
+        return eventType;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public String getPayloadClass() {
+        return payloadClass;
+    }
+
+    public String getSchemaId() {
+        return schemaId;
+    }
 }

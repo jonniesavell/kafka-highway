@@ -39,41 +39,128 @@
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.indigententerprises.applications</groupId>
+            <artifactId>class-generation-infrastructure</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.jsonschema2pojo</groupId>
-                <artifactId>jsonschema2pojo-maven-plugin</artifactId>
-                <!-- version>1.2.1</version -->
-                <version>1.3.2</version>
-
-                <dependencies>
-                    <dependency>
-                        <groupId>com.indigententerprises.applications</groupId>
-                        <artifactId>class-generation-infrastructure</artifactId>
-                        <version>0.0.1-SNAPSHOT</version>
-                    </dependency>
-                </dependencies>
-
-                <configuration>
-                    <annotationStyle>jackson2</annotationStyle>
-                    <!-- sourcePaths>
-                        <sourcePath>${project.basedir}/../shared/contracts/catalog/canonical-product-v1.schema.json</sourcePath>
-                    </sourcePaths -->
-                    <sourceDirectory>${project.basedir}/../shared/contracts</sourceDirectory>
-                    <customRuleFactory>com.indigententerprises.applications.classgenerationinfrastructure.CustomRuleFactory</customRuleFactory>
-                    <targetPackage>com.indigententerprises.applications.shared.contracts</targetPackage>
-                </configuration>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
+                        <id>rewrite-schemas-to-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.indigententerprises.applications.classgenerationinfrastructure.SchemaRewriterMain</mainClass>
+                            <arguments>
+                                <!-- canonical -->
+                                <argument>${project.basedir}/contracts</argument>
+                                <!-- codegen output (classpath resources) -->
+                                <argument>${project.basedir}/src/main/resources/contracts-codegen</argument>
+                                <!-- what rewritten $id/$ref should look like -->
+                                <argument>classpath:/contracts-codegen/</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-contracts-codegen-early</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/contracts-codegen</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/src/main/resources/contracts-codegen</directory>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jsonschema2pojo</groupId>
+                <artifactId>jsonschema2pojo-maven-plugin</artifactId>
+                <version>1.3.2</version>
+                <executions>
+                    <execution>
+                        <!-- phase>process-classes</phase -->
+                        <phase>process-resources</phase>
                         <goals>
                             <goal>generate</goal>
                         </goals>
+                        <configuration>
+                            <!-- point to rewritten schemas -->
+                            <!-- sourceDirectory>${project.basedir}/src/main/resources/contracts-codegen</sourceDirectory -->
+                            <sourcePaths>
+                                <!-- sourcePath>${project.basedir}/../shared/contracts/catalog/canonical-product-v1.schema.json</sourcePath> -->
+                                <sourcePath>${project.build.outputDirectory}/contracts-codegen/catalog/canonical-product-v1.schema.json</sourcePath>
+                            </sourcePaths>
+                            <targetPackage>com.indigententerprises.applications.shared.contracts</targetPackage>
+                            <usePrimitives>false</usePrimitives>
+                            <includeJsr303Annotations>true</includeJsr303Annotations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 4) Make Maven compile the generated sources -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-jsonschema2pojo-sources</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/jsonschema2pojo</source>
+                            </sources>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
 </project>
+
+        <!--                <configuration>-->
+        <!--                    <annotationStyle>jackson2</annotationStyle>-->
+        <!--                    <sourcePaths>-->
+        <!--                        <sourcePath>${project.basedir}/../shared/contracts/catalog/canonical-product-v1.schema.json</sourcePath>-->
+        <!--                    </sourcePaths>-->
+        <!--                    <sourceDirectory>${project.basedir}/../shared/contracts</sourceDirectory>-->
+        <!--                    <customRuleFactory>com.indigententerprises.applications.classgenerationinfrastructure.CustomRuleFactory</customRuleFactory>-->
+        <!--                    <targetPackage>com.indigententerprises.applications.shared.contracts</targetPackage>-->
+        <!--                </configuration>-->
+        <!--                <executions>-->
+        <!--                    <execution>-->
+        <!--                        <goals>-->
+        <!--                            <goal>generate</goal>-->
+        <!--                        </goals>-->
+        <!--                    </execution>-->
+        <!--                </executions>-->
